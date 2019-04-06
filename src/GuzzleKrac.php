@@ -178,13 +178,14 @@ class GuzzleKrac {
             return [
                 'success' => 1,
                 'data' => $content['data'],
+                'messages' => (!empty($content['message']) ? $content['message'] : false),
                 'headers' => $response->getHeaders(),
                 'status' => $response->getStatusCode()
             ];
         } else if($content['error']) {
             return [
                 'error' => $content['error'],
-                'messages' => $content['message'],
+                'messages' => (!empty($content['message']) ? $content['message'] : false),
                 'headers' => $response->getHeaders(),
                 'status' => $response->getStatusCode()
             ];
