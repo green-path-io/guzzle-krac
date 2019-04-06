@@ -1,8 +1,8 @@
 <?php
-namespace Greenpath\GuzzleKrac\Facades;
+namespace Greenpath\GuzzleKrac;
 
 use Illuminate\Support\Facades\Facade;
 
-class GuzzleKrac extends Facade{
+class GuzzleKracFacade extends Facade{
     protected static function getFacadeAccessor() { return 'guzzlekrac'; }
 }

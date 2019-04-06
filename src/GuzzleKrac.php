@@ -1,5 +1,5 @@
 <?php
-namespace Greenpath\GuzzleKrac\GuzzleKrac;
+namespace Greenpath\GuzzleKrac;
 
 use GuzzleHttp\Client;
 use Psr\Http\Message\ResponseInterface;
