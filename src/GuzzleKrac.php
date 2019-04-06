@@ -2,6 +2,8 @@
 namespace Greenpath\GuzzleKrac;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\Psr7;
+use GuzzleHttp\Exception\RequestException;
 use Psr\Http\Message\ResponseInterface;
 
 class GuzzleKrac {
@@ -81,24 +83,6 @@ class GuzzleKrac {
         return $this->initiate()->post($url, $options);
     }
 
-    /**
-     * @param array $parameters
-     * @return array
-     */
-    private function formatGetParameters(array $parameters): array
-    {
-        return ['query' => $parameters];
-    }
-
-    /**
-     * @param array $parameters
-     * @return array
-     */
-    private function formatRequestParameters(array $parameters): array
-    {
-        return ['form_params' => $parameters];
-    }
-
     private function request(string $method, string $url, array $options = [])
     {
         return $this->initiate()->request($method, $url, $options);
@@ -115,44 +99,55 @@ class GuzzleKrac {
     public function doRequest(string $method = "get", string $url = "", array $parameters = [], array $pagination = []): array
     {
         $fullUrl = $this->formatUrl($url);
+        $parameters = $this->buildParameters($parameters, $pagination);
 
-        $queryParameters = $this->getQueryParameters($method, array_merge($this->required_params, array_merge($this->formatPagination($pagination), $this->formatFilters($parameters))));
-        return $this->responseHandler($this->$method($fullUrl, $this->mergeHeaders($queryParameters)));
-    }
-
-    /**
-     * Merge any headers from the api-wrapper config file with any custom headers for this request
-     * @param array $parameters
-     * @return array
-     */
-    private function mergeHeaders(array $parameters): array
-    {
-        $headers['headers'] = $this->headers;
-        return array_merge($parameters, $headers);
-    }
-
-    /**
-     * @param string $method
-     * @param array $parameters
-     * @return array
-     */
-    private function getQueryParameters(string $method, array $parameters): array
-    {
-        switch ($method) {
-            case "get":
-                return $this->formatGetParameters($parameters);
-                break;
-            default:
-                return $this->formatRequestParameters($parameters);
-                break;
+        try {
+            $response = $this->responseHandler($this->$method($fullUrl, $parameters));
+        } catch (RequestException $e) {
+            if ($e->hasResponse()) {
+                return $this->responseHandler($e->getResponse());
+            }
+        } catch (ClientException $e) {
+            if ($e->hasResponse()) {
+                return $this->responseHandler($e->getResponse());
+            }
         }
+
+        die;
+
+        return $response;
+    }
+
+    private function buildParameters(array $parameters, array $pagination = null):array
+    {
+        $parameters = $this->formatHeaderParameters($parameters);
+        $parameters = $this->formatFilters($parameters);
+        $parameters = $this->formatQueryParameters($parameters, $pagination);
+
+        return $parameters;
+    }
+
+    private function formatHeaderParameters(array $parameters):array
+    {
+        if(!empty($parameters['headers']) || !empty($this->headers)) {
+            $parameters['headers'] = (isset($parameters['headers']) ? array_merge($parameters['headers'], $this->headers) : $this->headers);
+        }
+        return $parameters;
+    }
+
+    private function formatQueryParameters(array $parameters, array $pagination = null):array
+    {
+        $parameters['query'] = (isset($parameters['query']) ? array_merge($parameters['query'], $this->required_params) : $this->required_params);
+        $parameters['query'] = array_merge($parameters['query'], (!empty($pagination) ? $pagination : array()));
+
+        return $parameters;
     }
 
     private function formatFilters(array $parameters):array
     {
-        if($parameters && is_array($parameters['filters'])){
+        if(!empty($parameters['filters']) && is_array($parameters['filters'])){
             foreach($parameters['filters'] as $key => $value){
-                $parameters['filter['.$key.']'] = $value;
+                $parameters['query']['filter['.$key.']'] = $value;
             }
             unset($parameters['filters']);
         }
@@ -163,8 +158,8 @@ class GuzzleKrac {
     private function formatPagination(array $array):array
     {
         return [
-            'page' => (!empty($array['page']) ? $array['page'] : 1),
-            'take' => (!empty($array['take']) ? $array['take'] : 12),
+            'page' => (!empty($array['page']) && is_int($array['page']) ? $array['page'] : 1),
+            'take' => (!empty($array['take']) && is_int($array['take']) ? $array['take'] : 12),
         ];
     }
 
@@ -179,6 +174,29 @@ class GuzzleKrac {
     }
 
     private function responseHandler($response){
-        return json_decode($response->getBody(), true);
+        $content = json_decode($response->getBody()->getContents(), true);
+
+        if(!empty($content['data'])){
+            return [
+                'success' => 1,
+                'data' => $content['data'],
+                'headers' => $response->getHeaders(),
+                'status' => $response->getStatusCode()
+            ];
+        } else if($content['error']) {
+            return [
+                'error' => $content['error'],
+                'messages' => $content['message'],
+                'headers' => $response->getHeaders(),
+                'status' => $response->getStatusCode()
+            ];
+        } else {
+            return [
+                'error' => 1,
+                'messages' => 'response assignment failure',
+                'headers' => $response->getHeaders(),
+                'status' => 500
+            ];
+        }
     }
 }
