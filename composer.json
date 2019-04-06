@@ -24,7 +24,7 @@
                 "Greenpath\\GuzzleKrac\\GuzzleKracServiceProvider"
             ],
             "aliases": {
-                "GuzzleKrac": "Greenpath\\GuzzleKrac\\Facade"
+                "GuzzleKrac": "Greenpath\\GuzzleKrac\\Facades"
             }
         }
     }
