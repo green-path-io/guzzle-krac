@@ -1,5 +1,5 @@
 {
-    "name": "greenpath-io/guzzlekrac",
+    "name": "greenpath-io/guzzle-krac",
     "description": "Guzzle HTTP Wrapper and Facade for Laravel",
     "type": "library",
     "require": {
