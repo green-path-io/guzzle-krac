@@ -16,7 +16,7 @@ class GuzzleKracServiceProvider extends ServiceProvider
     {
         App::bind('guzzlekrac', function()
         {
-            return new Greenpath\GuzzleKrac\GuzzleKrac;
+            return new GuzzleKrac\GuzzleKrac();
         });
     }
 

@@ -150,7 +150,7 @@ class GuzzleKrac {
 
     private function formatFilters(array $parameters):array
     {
-        if(is_array($parameters['filters']) && $parameters['filters']){
+        if($parameters && is_array($parameters['filters'])){
             foreach($parameters['filters'] as $key => $value){
                 $parameters['filter['.$key.']'] = $value;
             }
