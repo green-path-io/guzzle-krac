@@ -1,0 +1,31 @@
+{
+    "name": "greenpath-io/guzzlekrac",
+    "description": "Guzzle HTTP Wrapper and Facade for Laravel",
+    "type": "library",
+    "require": {
+        "guzzlehttp/guzzle": "6.2",
+        "php": "7.0"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Kracheads"
+        }
+    ],
+    "minimum-stability": "dev",
+    "autoload": {
+        "psr-4": {
+            "Greenpath\\GuzzleKrac": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Greenpath\\GuzzleKrac\\GuzzleKracServiceProvider"
+            ],
+            "aliases": {
+                "GuzzleKrac": "Greenpath\\GuzzleKrac\\Facade"
+            }
+        }
+    }
+}
