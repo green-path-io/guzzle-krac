@@ -202,13 +202,12 @@ class GuzzleKrac {
 }
 
 class Response extends GuzzleKrac implements \JsonSerializable {
-    protected $success;
-    protected $error;
-    protected $data;
-    protected $message;
-    protected $type;
-    protected $status;
-    protected $headers;
+    public $success;
+    public $error;
+    public $data;
+    public $message;
+    public $status;
+    public $headers;
 
     public function __construct(array $array)
     {
