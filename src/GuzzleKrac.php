@@ -205,7 +205,7 @@ class Response extends GuzzleKrac implements \JsonSerializable {
     public $success;
     public $error;
     public $data;
-    public $message;
+    public $messages;
     public $status;
     public $headers;
 
