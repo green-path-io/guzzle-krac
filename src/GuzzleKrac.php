@@ -18,6 +18,7 @@ class GuzzleKrac {
         $this->rest_path = env('GZ_REST_PATH', NULL);
         $this->key = env('GZ_REST_KEY', NULL);
         $this->secret = env('GZ_REST_SECRET', NULL);
+        $this->showheaders = env('GZ_REST_SHOW_HEADERS', NULL);
 
         $this->required_params = array(
             'api_key' => $this->key,
@@ -176,24 +177,24 @@ class GuzzleKrac {
 
         if(!empty($content->data)){
             return new Response([
-                'type' => 'success',
+                'success' => 1,
                 'data' => $content->data,
                 'messages' => (!empty($content->message) ? $content->message : false),
-                'headers' => $response->getHeaders(),
+                'headers' => ($this->showheaders ? $response->getHeaders() : false),
                 'status' => $response->getStatusCode()
             ]);
         } else if($content->error) {
             return new Response([
-                'type' => 'error',
+                'error' => 1,
                 'messages' => (!empty($content->message) ? $content->message : false),
-                'headers' => $response->getHeaders(),
+                'headers' => ($this->showheaders ? $response->getHeaders() : false),
                 'status' => $response->getStatusCode()
             ]);
         } else {
             return new Response([
-                'type' => 'error',
+                'error' => 1,
                 'messages' => 'response assignment failure',
-                'headers' => $response->getHeaders(),
+                'headers' => ($this->showheaders ? $response->getHeaders() : false),
                 'status' => 500
             ]);
         }
@@ -201,6 +202,8 @@ class GuzzleKrac {
 }
 
 class Response extends GuzzleKrac implements \JsonSerializable {
+    protected $success;
+    protected $error;
     protected $data;
     protected $message;
     protected $type;
@@ -211,8 +214,16 @@ class Response extends GuzzleKrac implements \JsonSerializable {
     {
         if(!empty($array)){
             foreach ($array as $key => $value){
-                $this->$key = $value;
+                if(!empty($value)){
+                    $this->$key = $value;
+                }
             }
+        }
+
+        if($this->error) {
+            unset($this->success);
+        } else {
+            unset($this->error);
         }
     }
 
@@ -221,8 +232,13 @@ class Response extends GuzzleKrac implements \JsonSerializable {
         return (array)$this;
     }
 
-    public function _toJson()
+    public function jsonSerialize()
     {
         return get_object_vars($this);
+    }
+
+    public function _toJson()
+    {
+        return $this->jsonSerialize();
     }
 }
