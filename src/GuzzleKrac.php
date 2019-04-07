@@ -96,7 +96,7 @@ class GuzzleKrac {
      * @param array $pagination
      * @return array
      */
-    public function doRequest(string $method = "get", string $url = "", array $parameters = [], array $pagination = []): array
+    public function doRequest(string $method = "get", string $url = "", array $parameters = [], array $pagination = []): Response
     {
         $fullUrl = $this->formatUrl($url);
         $parameters = $this->buildParameters($parameters, $pagination);
@@ -172,30 +172,57 @@ class GuzzleKrac {
     }
 
     private function responseHandler($response){
-        $content = json_decode($response->getBody()->getContents(), true);
+        $content = json_decode($response->getBody()->getContents());
 
-        if(!empty($content['data'])){
-            return [
-                'success' => 1,
-                'data' => $content['data'],
-                'messages' => (!empty($content['message']) ? $content['message'] : false),
+        if(!empty($content->data)){
+            return new Response([
+                'type' => 'success',
+                'data' => $content->data,
+                'messages' => (!empty($content->message) ? $content->message : false),
                 'headers' => $response->getHeaders(),
                 'status' => $response->getStatusCode()
-            ];
-        } else if($content['error']) {
-            return [
-                'error' => $content['error'],
-                'messages' => (!empty($content['message']) ? $content['message'] : false),
+            ]);
+        } else if($content->error) {
+            return new Response([
+                'type' => 'error',
+                'messages' => (!empty($content->message) ? $content->message : false),
                 'headers' => $response->getHeaders(),
                 'status' => $response->getStatusCode()
-            ];
+            ]);
         } else {
-            return [
-                'error' => 1,
+            return new Response([
+                'type' => 'error',
                 'messages' => 'response assignment failure',
                 'headers' => $response->getHeaders(),
                 'status' => 500
-            ];
+            ]);
         }
+    }
+}
+
+class Response extends GuzzleKrac implements \JsonSerializable {
+    protected $data;
+    protected $message;
+    protected $type;
+    protected $status;
+    protected $headers;
+
+    public function __construct(array $array)
+    {
+        if(!empty($array)){
+            foreach ($array as $key => $value){
+                $this->$key = $value;
+            }
+        }
+    }
+
+    public function _toArray()
+    {
+        return (array)$this;
+    }
+
+    public function _toJson()
+    {
+        return get_object_vars($this);
     }
 }
