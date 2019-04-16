@@ -4,34 +4,71 @@ namespace Greenpath\GuzzleKrac;
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7;
 use GuzzleHttp\Exception\RequestException;
+use Lcobucci\JWT\Signer\Hmac\Sha256;
+use Lcobucci\JWT\Builder;
+use Lcobucci\JWT\Parser;
+use Lcobucci\JWT\ValidationData;
 use Psr\Http\Message\ResponseInterface;
 
 class GuzzleKrac {
-    private $rest_uri;
+    private $rest_url;
     private $key;
     private $secret;
-    private $headers;
-    private $required_params;
+    private $kracurl;
+    private $kracparams;
 
     public function __construct(){
-        $this->rest_uri = env('GZ_REST_URI', NULL);
-        $this->rest_path = env('GZ_REST_PATH', NULL);
+        $this->rest_url = env('GZ_REST_URL', NULL);
         $this->key = env('GZ_REST_KEY', NULL);
         $this->secret = env('GZ_REST_SECRET', NULL);
-        $this->showheaders = env('GZ_REST_SHOW_HEADERS', NULL);
-
-        $this->required_params = array(
-            'api_key' => $this->key,
-            'api_secret' => $this->secret
-        );
+        $this->showheaders = env('GZ_REST_SHOW_HEADERS', false);
+        $this->kracparams = new KracParams($this->key, $this->secret);
+        $this->keyname = env('GZ_REST_KEY_NAME', 'token');
     }
 
     /**
+     * Init the Guzzle Client
      * @return Client
      */
     private function initiate()
     {
-        return new Client(['base_uri' => $this->rest_uri]);
+        return new Client(['base_uri' => $this->getURI()]);
+    }
+
+    /**
+     * Populate the URL Object by parsing the rest url and path
+     * @return array kracurl
+     */
+    private function buildUrl(string $apipath)
+    {
+        $parser = new \League\Uri\Parser();
+        $this->kracurl = $parser($this->rest_url.''.$apipath);
+
+        return $this->kracurl;
+    }
+
+    /**
+     * Return back the domain url with the scheme
+     * @return string scheme:host
+     */
+    private function getURI(){
+        return $this->kracurl['scheme'].'://'.$this->kracurl['host'];
+    }
+
+    /**
+     * Return back the domain url with the scheme and path
+     * @return string scheme:host:path
+     */
+    private function getURL(){
+        return $this->kracurl['scheme'].'://'.$this->kracurl['host'].$this->kracurl['path'];
+    }
+
+    /**
+     * Return back the domains path only
+     * @return string  path
+     */
+    private function getPath(){
+        return $this->kracurl['path'];
     }
 
     /**
@@ -84,26 +121,107 @@ class GuzzleKrac {
         return $this->initiate()->post($url, $options);
     }
 
-    private function request(string $method, string $url, array $options = [])
+    /**
+     * @param string $mthod
+     * @param string $url
+     * @param array $options
+     * @return ResponseInterface
+     */
+    private function request(string $method, string $url, array $options = []): ResponseInterface
     {
         return $this->initiate()->request($method, $url, $options);
     }
 
     /**
-     * Send a request to the api and return the response
-     * @param string $method
-     * @param string $url
-     * @param array $parameters
-     * @param array $pagination
+     * Build the response object based on the response once validating the token
+     * @param ResponseInterface $response
+     * @return Response
+     */
+    private function responseHandler(ResponseInterface $response)
+    {
+        $results = json_decode($response->getBody()->getContents());
+        $validation = $this->validateToken($results->token);
+
+        if(!empty($response->getStatusCode() == 200)){
+            return new Response([
+                'success' => 1,
+                'data' => $results->data,
+                'messages' => ($validation && !empty($results->message) ? $results->message : (!$validation ? $validation : 'no messaging present.') ),
+                'headers' => ($this->showheaders ? $response->getHeaders() : false),
+                'status' => $response->getStatusCode()
+            ]);
+        } else {
+            return new Response([
+                'error' => $results->error,
+                'messages' => ($validation && !empty($results->message) ? $results->message : (!$validation ? $validation : 'response assignment failure') ),
+                'headers' => ($this->showheaders ? $response->getHeaders() : false),
+                'status' => (!empty($response->getStatusCode()) && $response->getStatusCode() !== 500 ? $response->getStatusCode() : 500)
+            ]);
+        }
+    }
+
+    /**
+     * Create the token for the request object, keyname for array can be defined
+     * @param string $keyname
+     * @param string $sign
      * @return array
      */
-    public function doRequest(string $method = "get", string $url = "", array $parameters = [], array $pagination = []): Response
+    private function setToken(string $keyname, string $sign) : array
     {
-        $fullUrl = $this->formatUrl($url);
-        $parameters = $this->buildParameters($parameters, $pagination);
+        $signer = new Sha256();
+        $token = (new Builder())
+            ->setIssuer(config('app.url'))
+            ->setAudience($this->getURI())
+            ->setIssuedAt(time())
+            ->setExpiration(time() + 100)
+            ->sign($signer, $sign)
+            ->getToken()->__toString();
+
+        return [$keyname => $token];
+    }
+
+    /**
+     * Valdiate the return token from the response
+     * @param string $token
+     * @return boolean|string
+     */
+    private function validateToken(string $token){
+        if(!empty($token)){
+            $signer = new Sha256();
+            $token = (new Parser())->parse((string) $token); // Parses from a string
+
+            if($token->verify($signer, $this->secret)){
+                $data = new ValidationData();
+                $data->setIssuer($this->getURI());
+                $data->setAudience(config('app.url'));
+
+                if($token->validate($data)){
+                    return true;
+                } else {
+                    return 'token not originating from original issuer / audience.';
+                }
+            } else {
+                return 'token is invalid or expired.';
+            }
+        } else {
+            return 'token could not be located.';
+        }
+    }
+
+    /**
+     * Send a request to the api and return the response
+     * @param string $method
+     * @param string $path
+     * @param array $parameters
+     * @return Response
+     */
+    public function doRequest(string $method = "get", string $path = "", array $parameters = []): Response
+    {
+        $requesturl = $this->buildUrl($path);
+        $this->kracparams->form_params($this->setToken($this->keyname, $this->secret));
 
         try {
-            $response = $this->responseHandler($this->$method($fullUrl, $parameters));
+            $response = $this->responseHandler($this->$method($requesturl['path'], $this->kracparams->get($parameters)));
         } catch (RequestException $e) {
             if ($e->hasResponse()) {
                 return $this->responseHandler($e->getResponse());
@@ -115,129 +233,5 @@ class GuzzleKrac {
         }
 
         return $response;
-    }
-
-    private function buildParameters(array $parameters, array $pagination = null):array
-    {
-        $parameters = $this->formatHeaderParameters($parameters);
-        $parameters = $this->formatFilters($parameters);
-        $parameters = $this->formatQueryParameters($parameters, $pagination);
-
-        return $parameters;
-    }
-
-    private function formatHeaderParameters(array $parameters):array
-    {
-        if(!empty($parameters['headers']) || !empty($this->headers)) {
-            $parameters['headers'] = (isset($parameters['headers']) ? array_merge($parameters['headers'], $this->headers) : $this->headers);
-        }
-        return $parameters;
-    }
-
-    private function formatQueryParameters(array $parameters, array $pagination = null):array
-    {
-        $parameters['query'] = (isset($parameters['query']) ? array_merge($parameters['query'], $this->required_params) : $this->required_params);
-        $parameters['query'] = array_merge($parameters['query'], (!empty($pagination) ? $pagination : array()));
-
-        return $parameters;
-    }
-
-    private function formatFilters(array $parameters):array
-    {
-        if(!empty($parameters['filters']) && is_array($parameters['filters'])){
-            foreach($parameters['filters'] as $key => $value){
-                $parameters['query']['filter['.$key.']'] = $value;
-            }
-            unset($parameters['filters']);
-        }
-
-        return $parameters;
-    }
-
-    private function formatPagination(array $array):array
-    {
-        return [
-            'page' => (!empty($array['page']) && is_int($array['page']) ? $array['page'] : 1),
-            'take' => (!empty($array['take']) && is_int($array['take']) ? $array['take'] : 12),
-        ];
-    }
-
-    private function formatUrl(string $url)
-    {
-        $fullUrl = $this->rest_path;
-        if(!empty($url)) {
-            $fullUrl .= $url;
-        }
-
-        return $fullUrl;
-    }
-
-    private function responseHandler($response){
-        $content = json_decode($response->getBody()->getContents());
-
-        if(!empty($content->data)){
-            return new Response([
-                'success' => 1,
-                'data' => $content->data,
-                'messages' => (!empty($content->message) ? $content->message : false),
-                'headers' => ($this->showheaders ? $response->getHeaders() : false),
-                'status' => $response->getStatusCode()
-            ]);
-        } else if($content->error) {
-            return new Response([
-                'error' => 1,
-                'messages' => (!empty($content->message) ? $content->message : false),
-                'headers' => ($this->showheaders ? $response->getHeaders() : false),
-                'status' => $response->getStatusCode()
-            ]);
-        } else {
-            return new Response([
-                'error' => 1,
-                'messages' => 'response assignment failure',
-                'headers' => ($this->showheaders ? $response->getHeaders() : false),
-                'status' => 500
-            ]);
-        }
-    }
-}
-
-class Response extends GuzzleKrac implements \JsonSerializable {
-    public $success;
-    public $error;
-    public $data;
-    public $messages;
-    public $status;
-    public $headers;
-
-    public function __construct(array $array)
-    {
-        if(!empty($array)){
-            foreach ($array as $key => $value){
-                if(!empty($value)){
-                    $this->$key = $value;
-                }
-            }
-        }
-
-        if($this->error) {
-            unset($this->success);
-        } else {
-            unset($this->error);
-        }
-    }
-
-    public function _toArray()
-    {
-        return (array)$this;
-    }
-
-    public function jsonSerialize()
-    {
-        return get_object_vars($this);
-    }
-
-    public function _toJson()
-    {
-        return $this->jsonSerialize();
     }
 }
