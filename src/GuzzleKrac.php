@@ -22,8 +22,8 @@ class GuzzleKrac {
         $this->key = env('GZ_REST_KEY', NULL);
         $this->secret = env('GZ_REST_SECRET', NULL);
         $this->showheaders = env('GZ_REST_SHOW_HEADERS', false);
-        $this->kracparams = new KracParams($this->key, $this->secret);
         $this->keyname = env('GZ_REST_KEY_NAME', 'token');
+        $this->kracparams = new KracParams($this->key, $this->secret);
     }
 
     /**
@@ -140,7 +140,7 @@ class GuzzleKrac {
     private function responseHandler(ResponseInterface $response)
     {
         $results = json_decode($response->getBody()->getContents());
-        $validation = $this->validateToken($results->token);
+        $validation = (!$this->app->environment('production') ? $this->validateToken($results->token): false);
 
         if(!empty($response->getStatusCode() == 200)){
             return new Response([
@@ -218,7 +218,9 @@ class GuzzleKrac {
     public function doRequest(string $method = "get", string $path = "", array $parameters = []): Response
     {
         $requesturl = $this->buildUrl($path);
-        $this->kracparams->form_params($this->setToken($this->keyname, $this->secret));
+        if (!$this->app->environment('production')){
+            $this->kracparams->form_params($this->setToken($this->keyname, $this->secret));
+        }
 
         try {
             $response = $this->responseHandler($this->$method($requesturl['path'], $this->kracparams->get($parameters)));
