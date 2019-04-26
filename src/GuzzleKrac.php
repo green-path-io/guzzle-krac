@@ -4,6 +4,7 @@ namespace Greenpath\GuzzleKrac;
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7;
 use GuzzleHttp\Exception\RequestException;
+use Illuminate\Support\Facades\App;
 use Lcobucci\JWT\Signer\Hmac\Sha256;
 use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Parser;
@@ -140,20 +141,24 @@ class GuzzleKrac {
     private function responseHandler(ResponseInterface $response)
     {
         $results = json_decode($response->getBody()->getContents());
-        $validation = (!$this->app->environment('production') ? $this->validateToken($results->token): false);
+        $validation = (App::environment('production') ? $this->validateToken($results->token): false);
+        if(is_string($validation)){
+            $results->messages = array('warning' => $validation);
+            $validation = false;
+        }
 
         if(!empty($response->getStatusCode() == 200)){
             return new Response([
                 'success' => 1,
                 'data' => $results->data,
-                'messages' => ($validation && !empty($results->message) ? $results->message : (!$validation ? $validation : 'no messaging present.') ),
+                'messages' => ($validation && !empty($results->messages) ? $results->messages : (!empty($results->messages) ? $results->messages : 'no messaging present.') ),
                 'headers' => ($this->showheaders ? $response->getHeaders() : false),
                 'status' => $response->getStatusCode()
             ]);
         } else {
             return new Response([
-                'error' => $results->error,
-                'messages' => ($validation && !empty($results->message) ? $results->message : (!$validation ? $validation : 'response assignment failure') ),
+                'error' => (!empty($results->error) ? $results->error : $response->getReasonPhrase()),
+                'messages' => ($validation && !empty($results->messages) ? $results->messages : (!empty($results->messages) ? $results->messages : 'response assignment failure') ),
                 'headers' => ($this->showheaders ? $response->getHeaders() : false),
                 'status' => (!empty($response->getStatusCode()) && $response->getStatusCode() !== 500 ? $response->getStatusCode() : 500)
             ]);
@@ -218,7 +223,7 @@ class GuzzleKrac {
     public function doRequest(string $method = "get", string $path = "", array $parameters = []): Response
     {
         $requesturl = $this->buildUrl($path);
-        if (!$this->app->environment('production')){
+        if (App::environment('production')){
             $this->kracparams->form_params($this->setToken($this->keyname, $this->secret));
         }
 
