@@ -154,11 +154,11 @@ class GuzzleKrac {
         if(!empty($response->getStatusCode() == 200)){
             return new Response([
                 'success' => 1,
-                'data' => $results->data,
+                'data' => (!empty($results->data) ? $results->data : false),
                 'messages' => ($validation && !empty($results->messages) ? $results->messages : (!empty($results->messages) ? $results->messages : 'no messaging present.') ),
                 'headers' => ($this->showheaders ? $response->getHeaders() : false),
                 'status' => $response->getStatusCode(),
-                'meta' => (!empty($results->meta) ? $this->getPagination($results->meta) : false)
+                'meta' => (!empty($results->meta) && !empty($results->data) ? $this->getPagination($results->meta) : false)
             ]);
         } else {
             return new Response([
@@ -259,7 +259,7 @@ class GuzzleKrac {
 
             if(!empty($paginstiongurl)){
                 $query = new Query($paginstiongurl['query']);
-                if(!empty($query) && !empty($query->getPair('page'))){
+                if(!empty($query)){
                     $meta->pagination->links->previous = ( ( (int)$meta->pagination->current_page - 1 ) >= 1 ? $this->buildQueryURL($paginstiongurl, ((int)$meta->pagination->current_page - 1)) : false);
 
                     if($meta->pagination->current_page > 0){
@@ -271,7 +271,7 @@ class GuzzleKrac {
                         $meta->pagination->links->countdown = (!empty($meta->pagination->links->countdown) ? array_reverse($meta->pagination->links->countdown, true) : false);
                     }
 
-                    $meta->pagination->links->current = $this->buildQueryURL($paginstiongurl, $query->getPair('page'));
+                    $meta->pagination->links->current = array($meta->pagination->current_page => $this->buildQueryURL($paginstiongurl, $meta->pagination->current_page));
 
                     if($meta->pagination->current_page < $meta->pagination->total_pages){
                         for($i = ($meta->pagination->current_page + 1); $i < ($meta->pagination->current_page + (5 + 1)); $i++){
@@ -282,10 +282,11 @@ class GuzzleKrac {
                     }
 
                     $meta->pagination->links->next = (((int)$meta->pagination->current_page + 1) != $meta->pagination->total_pages ? $this->buildQueryURL($paginstiongurl, ((int)$meta->pagination->current_page + 1)) : false);
-                    $meta->pagination->links->full = $meta->pagination->links->countdown + array($meta->pagination->current_page => $meta->pagination->links->current) + $meta->pagination->links->countup;
+                    $meta->pagination->links->full = (!empty($meta->pagination->links->countdown) ? $meta->pagination->links->countdown : array()) + $meta->pagination->links->current + (!empty($meta->pagination->links->countup) ? $meta->pagination->links->countup : array());
                 }
             }
         }
+
         return $meta;
     }
 
@@ -297,6 +298,7 @@ class GuzzleKrac {
      * @return string|bool $url
      */
     private function buildQueryURL(array $parsedurl, int $page = 1, string $index = 'page'){
+        $flagged = false;
         if(is_array($parsedurl) && !empty($parsedurl) && !empty($parsedurl['query'])){
             $pairs = QueryString::parse($parsedurl['query']);
             if(is_array($pairs)){
@@ -305,17 +307,23 @@ class GuzzleKrac {
                         foreach($b as $c => $d){
                             if($d == $index && !empty($pairs[$a][($c+1)])){
                                 $pairs[$a][($c+1)] = $page;
+                                $flagged = true;
                             }
                         }
                     } else if($pairs[$a][$b] == $index && !empty($pairs[$a][($b+1)])){
                         $pairs[$a][($b+1)] = $page;
+                        $flagged = true;
                     }
+                }
+
+                if($flagged == false){
+                    $pairs[] = array('0' => $index, '1' => $page);
                 }
 
                 $querystring = QueryString::build($pairs, '&');
                 $parsedurl['query'] = $querystring;
 
-                return build($parsedurl);
+                return urldecode(build($parsedurl));
             }
         }
 
