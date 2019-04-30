@@ -281,7 +281,7 @@ class GuzzleKrac {
                         }
                     }
 
-                    $meta->pagination->links->next = (((int)$meta->pagination->current_page + 1) != $meta->pagination->total_pages ? $this->buildQueryURL($paginstiongurl, ((int)$meta->pagination->current_page + 1)) : false);
+                    $meta->pagination->links->next = ((int)$meta->pagination->current_page != $meta->pagination->total_pages ? $this->buildQueryURL($paginstiongurl, ((int)$meta->pagination->current_page + 1)) : false);
                     $meta->pagination->links->full = (!empty($meta->pagination->links->countdown) ? $meta->pagination->links->countdown : array()) + $meta->pagination->links->current + (!empty($meta->pagination->links->countup) ? $meta->pagination->links->countup : array());
                 }
             }
