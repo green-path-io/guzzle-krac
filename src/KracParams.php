@@ -99,4 +99,35 @@ class KracParams extends KracData implements Request
     {
         return !empty($this->request[$name]) ? true : false;
     }
+
+    /**
+     * Remove an index from the request array
+     * @param string $array
+     * @param string $name
+     * @return boolean
+     */
+    public function remove(string $array, string $name)
+    {
+        if(!empty($this->request[$array][$name])){
+            unset($this->request[$array][$name]);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Get Query Parameters but remove sensative information
+     * @return array
+     */
+    public function getQueryParams(){
+        if(!empty($this->request['query']['api_key'])){
+            $this->remove('query', 'api_key');
+        }
+        if(!empty($this->request['query']['api_secret'])){
+            $this->remove('query', 'api_secret');
+        }
+
+        return $this->request['query'];
+    }
 }
