@@ -299,7 +299,8 @@ class GuzzleKrac {
      */
     private function buildQueryURL(array $parsedurl, int $page = 1, string $index = 'page'){
         $flagged = false;
-        if(is_array($parsedurl) && !empty($parsedurl) && !empty($parsedurl['query'])){
+
+        if(is_array($parsedurl) && !empty($parsedurl)){
             $pairs = QueryString::parse($parsedurl['query']);
             if(is_array($pairs)){
                 foreach($pairs as $a => $b){
