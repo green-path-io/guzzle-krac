@@ -21,6 +21,7 @@ class GuzzleKrac {
     private $secret;
     private $kracurl;
     private $kracparams;
+    private $json;
 
     public function __construct(){
         $this->rest_url = env('GZ_REST_URL', NULL);
@@ -29,6 +30,7 @@ class GuzzleKrac {
         $this->showheaders = env('GZ_REST_SHOW_HEADERS', false);
         $this->keyname = env('GZ_REST_KEY_NAME', 'token');
         $this->kracparams = new KracParams($this->key, $this->secret);
+        $this->json = env('GZ_REST_RESPONSE_JSON', true);
     }
 
     /**
@@ -144,7 +146,7 @@ class GuzzleKrac {
      */
     private function responseHandler(ResponseInterface $response)
     {
-        $results = json_decode($response->getBody()->getContents());
+        $results = json_decode($response->getBody()->getContents(), $this->json);
         $validation = (App::environment('production') ? $this->validateToken($results->token): false);
         if(is_string($validation)){
             $results->messages = array('warning' => $validation);
@@ -152,7 +154,7 @@ class GuzzleKrac {
         }
 
         if(!empty($response->getStatusCode() == 200)){
-            return new Response([
+            $response = new Response([
                 'success' => 1,
                 'data' => (!empty($results->data) ? $results->data : false),
                 'messages' => ($validation && !empty($results->messages) ? $results->messages : (!empty($results->messages) ? $results->messages : 'no messaging present.') ),
@@ -161,13 +163,15 @@ class GuzzleKrac {
                 'meta' => (!empty($results->meta) && !empty($results->data) ? $this->getPagination($results->meta) : false)
             ]);
         } else {
-            return new Response([
+            $response = new Response([
                 'error' => (!empty($results->error) ? $results->error : $response->getReasonPhrase()),
                 'messages' => ($validation && !empty($results->messages) ? $results->messages : (!empty($results->messages) ? $results->messages : 'response assignment failure') ),
                 'headers' => ($this->showheaders ? $response->getHeaders() : false),
                 'status' => (!empty($response->getStatusCode()) && $response->getStatusCode() !== 500 ? $response->getStatusCode() : 500)
             ]);
         }
+
+        return $response;
     }
 
     /**
@@ -225,9 +229,11 @@ class GuzzleKrac {
      * @param array $parameters
      * @return Response
      */
-    public function doRequest(string $method = "get", string $path = "", array $parameters = []): Response
+    public function doRequest(string $method = "get", string $path = "", array $parameters = [], bool $json = false): Response
     {
         $requesturl = $this->buildUrl($path);
+        $this->json = $json;
+        
         if (App::environment('production')){
             $this->kracparams->form_params($this->setToken($this->keyname, $this->secret));
         }

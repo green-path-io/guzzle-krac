@@ -32,7 +32,7 @@ class Response extends GuzzleKrac implements \JsonSerializable {
 
     public function _toArray()
     {
-        return (array)$this;
+        return call_user_func('get_object_vars', $this);
     }
 
     public function jsonSerialize()
@@ -40,8 +40,8 @@ class Response extends GuzzleKrac implements \JsonSerializable {
         return get_object_vars($this);
     }
 
-    public function _toJson()
+    public function _toJson($options = 0)
     {
-        return $this->jsonSerialize();
+        return json_encode($this->jsonSerialize(), $options);
     }
 }
