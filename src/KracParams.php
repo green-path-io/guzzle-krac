@@ -73,7 +73,9 @@ class KracParams extends KracData implements Request
     {
         if(!empty($array)){
             foreach($array as $key => $value){
-                $this->$key($value);
+                if(!empty($value)){
+                    $this->$key($value);
+                }
             }
         }
 
