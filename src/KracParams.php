@@ -65,6 +65,26 @@ class KracParams extends KracData implements Request
     }
 
     /**
+     * Build form params or merge with existing (token is added if form params exist for the request)
+     * @param array $formparams
+     */
+    public function multipart(array $multiparts)
+    {
+        if(!empty($multiparts)){
+            foreach($multiparts as $k => $v){
+                $this->request['multipart'][$k] = array(
+                    'name' => $k,
+                    'contents' => (is_file($v) ? file_get_contents($v->getRealPath()) : $v)
+                );
+
+                if(is_file($v)){
+                    $this->request['multipart'][$k]['filename'] = $v->getClientOriginalName();
+                }
+            }
+        }
+    }
+
+    /**
      * Populate required variables based on array parameters, return request array
      * @param array $array
      * @return array
