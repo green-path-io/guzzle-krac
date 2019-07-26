@@ -266,6 +266,9 @@ class GuzzleKrac {
             if(!empty($paginstiongurl)){
                 $query = new Query($paginstiongurl['query']);
                 if(!empty($query)){
+                    $meta->pagination->links->first = $this->buildQueryURL($paginstiongurl, 1);
+                    $meta->pagination->links->last = $this->buildQueryURL($paginstiongurl, $meta->pagination->total_pages);
+
                     $meta->pagination->links->previous = ( ( (int)$meta->pagination->current_page - 1 ) >= 1 ? $this->buildQueryURL($paginstiongurl, ((int)$meta->pagination->current_page - 1)) : false);
 
                     if($meta->pagination->current_page > 0){
@@ -329,7 +332,7 @@ class GuzzleKrac {
 
                 $querystring = QueryString::build($pairs, '&');
                 $parsedurl['query'] = $querystring;
-
+                
                 return urldecode(build($parsedurl));
             }
         }
