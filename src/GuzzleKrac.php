@@ -28,7 +28,7 @@ class GuzzleKrac {
         $this->key = env('GZ_REST_KEY', NULL);
         $this->secret = env('GZ_REST_SECRET', NULL);
         $this->showheaders = env('GZ_REST_SHOW_HEADERS', false);
-        $this->keyname = env('GZ_REST_KEY_NAME', 'token');
+        $this->keyname = env('GZ_REST_KEY_NAME', 'api_token');
         $this->kracparams = new KracParams($this->key, $this->secret);
         $this->json = env('GZ_REST_RESPONSE_JSON', true);
     }
@@ -148,6 +148,7 @@ class GuzzleKrac {
     {
         $results = json_decode($response->getBody()->getContents(), $this->json);
         $validation = (App::environment('production') ? $this->validateToken($results->token): false);
+        
         if(is_string($validation)){
             $results->messages = array('warning' => $validation);
             $validation = false;
@@ -233,9 +234,9 @@ class GuzzleKrac {
     {
         $requesturl = $this->buildUrl($path);
         $this->json = $json;
-        
+
         if (App::environment('production')){
-            $this->kracparams->form_params($this->setToken($this->keyname, $this->secret));
+            $this->kracparams->query($this->setToken($this->keyname, $this->secret));
         }
 
         try {
@@ -332,7 +333,7 @@ class GuzzleKrac {
 
                 $querystring = QueryString::build($pairs, '&');
                 $parsedurl['query'] = $querystring;
-                
+
                 return urldecode(build($parsedurl));
             }
         }
