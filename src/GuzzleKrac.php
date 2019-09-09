@@ -40,7 +40,7 @@ class GuzzleKrac {
      */
     private function initiate()
     {
-        return new Client(['base_uri' => $this->getURI(), 'verify' => false]);
+        return new Client(['base_uri' => $this->getURI(), 'verify' => $this->ssl]);
     }
 
     /**
