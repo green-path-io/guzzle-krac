@@ -27,6 +27,7 @@ class GuzzleKrac {
         $this->rest_url = env('GZ_REST_URL', NULL);
         $this->key = env('GZ_REST_KEY', NULL);
         $this->secret = env('GZ_REST_SECRET', NULL);
+        $this->ssl = env('GZ_REST_SSL', true);
         $this->showheaders = env('GZ_REST_SHOW_HEADERS', false);
         $this->keyname = env('GZ_REST_KEY_NAME', 'api_token');
         $this->kracparams = new KracParams($this->key, $this->secret);
@@ -39,7 +40,7 @@ class GuzzleKrac {
      */
     private function initiate()
     {
-        return new Client(['base_uri' => $this->getURI()]);
+        return new Client(['base_uri' => $this->getURI(), 'verify' => false]);
     }
 
     /**
