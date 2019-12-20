@@ -77,7 +77,7 @@ class KracParams extends KracData implements Request
                     'contents' => (!is_array($v) && is_file($v) ? file_get_contents($v->getRealPath()) : $v)
                 );
 
-                if(is_file($v)){
+                if(!is_array($v) && is_file($v)){
                     $this->request['multipart'][$k]['filename'] = $v->getClientOriginalName();
                 }
             }
