@@ -66,19 +66,23 @@ class KracParams extends KracData implements Request
 
     /**
      * Build form params or merge with existing (token is added if form params exist for the request)
-     * @param array $formparams
+     * @param array $multiparts
      */
     public function multipart(array $multiparts)
     {
         if(!empty($multiparts)){
             foreach($multiparts as $k => $v){
-                $this->request['multipart'][$k] = array(
-                    'name' => $k,
-                    'contents' => (!is_array($v) && is_file($v) ? file_get_contents($v->getRealPath()) : $v)
-                );
+                if(!is_array($v)){
+                    $this->request['multipart'][$k] = ['name' => $k, 'contents' => (is_file($v) ? file_get_contents($v->getRealPath()) : $v)];
+                    if(is_file($v)){
+                        $this->request['multipart'][$k]['filename'] = $v->getClientOriginalName();
+                    }
+                    continue;
+                }
 
-                if(!is_array($v) && is_file($v)){
-                    $this->request['multipart'][$k]['filename'] = $v->getClientOriginalName();
+                foreach($v as $multikey => $multivalue){
+                    $multiname = $k . '[' .$multikey . ']' . (is_array($multivalue) ? '[' . key($multivalue) . ']' : '' ) . '';
+                    $this->request['multipart'][$k] = ['name' => $multiname, 'contents' => (is_array($multivalue) ? reset($multivalue) : $multivalue)];
                 }
             }
         }
@@ -109,12 +113,12 @@ class KracParams extends KracData implements Request
      */
     public function item(string $item)
     {
-        return isset($this->request[$name]) ? $this->request[$name] : null;
+        return isset($this->request[$item]) ? $this->request[$item] : null;
     }
 
     /**
      * Does request array contain index
-     * @param string $item
+     * @param string $name
      * @return boolean
      */
     public function has(string $name)
@@ -139,7 +143,7 @@ class KracParams extends KracData implements Request
     }
 
     /**
-     * Get Query Parameters but remove sensative information
+     * Get Query Parameters but remove sensitive information
      * @return array
      */
     public function getQueryParams(){
