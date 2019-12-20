@@ -74,7 +74,7 @@ class KracParams extends KracData implements Request
             foreach($multiparts as $k => $v){
                 $this->request['multipart'][$k] = array(
                     'name' => $k,
-                    'contents' => (is_file($v) && !is_array($v) ? file_get_contents($v->getRealPath()) : $v)
+                    'contents' => (!is_array($v) && is_file($v) ? file_get_contents($v->getRealPath()) : $v)
                 );
 
                 if(is_file($v)){
